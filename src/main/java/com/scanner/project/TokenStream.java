@@ -11,17 +11,17 @@ public class TokenStream {
     private static final Set<String> KEYWORDS = Set.of(
         "bool","else","if","integer","main","while"
     );
+
     private static final Set<String> OPERATORS2 = Set.of(
         "||","&&","!=","==",">=","<=",":="
     );
+
     private static final Set<String> OPERATORS1 = Set.of(
-        "!","<",">","/","*","-","+"
+        "!","<",">","/","*","-","+","="
     );
+
     private static final Set<String> SEPARATORS = Set.of(
         "(",")","{","}",";",","
-    );
-    private static final Set<String> OTHER = Set.of(
-        "=","@","&","|",":","\\","[","]"
     );
 
     public TokenStream(String path) {
@@ -55,7 +55,6 @@ public class TokenStream {
             String s=String.valueOf(line.charAt(i));
             if (OPERATORS1.contains(s)) { add(s,"Operator"); i++; continue; }
             if (SEPARATORS.contains(s)) { add(s,"Separator"); i++; continue; }
-            if (OTHER.contains(s))      { add(s,"Other"); i++; continue; }
 
             if (Character.isLetterOrDigit(line.charAt(i)) || line.charAt(i)=='.') {
                 int j=i;
@@ -72,9 +71,10 @@ public class TokenStream {
 
     private String classify(String w) {
         if (KEYWORDS.contains(w)) return "Keyword";
-        if ("True".equals(w) || "False".equals(w)) return "Literal";
+        if ("true".equals(w) || "false".equals(w)) return "Literal";
         if (w.matches("\\d+")) return "Literal";
-        if (w.length()>0 && Character.isLetter(w.charAt(0)) && w.substring(1).chars().allMatch(Character::isLetterOrDigit))
+        if (w.length()>0 && Character.isLetter(w.charAt(0)) &&
+            w.substring(1).chars().allMatch(Character::isLetterOrDigit))
             return "Identifier";
         return "Other";
     }
