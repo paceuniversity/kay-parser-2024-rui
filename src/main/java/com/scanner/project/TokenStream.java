@@ -1,236 +1,164 @@
 package com.scanner.project;
-// TokenStream.java
-
-// Implementation of the Scanner for KAY
-
-// This code DOES NOT implement a scanner for KAY yet. You have to complete
-// the code and also make sure it implements a scanner for KAY - not something
-// else, not more and not less
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class TokenStream {
 
-	// READ THE COMPLETE FILE FIRST
-	// You will need to adapt it to KAY, NOT JAY
+    private final List<Token> tokens = new ArrayList<>();
+    private int index = 0;
 
-	// Instance variables 
-	private boolean isEof = false; // is end of file
-	private char nextChar = ' '; // next character in input stream
-	private BufferedReader input;
+    private static final Set<String> KEYWORDS = new HashSet<>(Arrays.asList(
+            "bool", "else", "if", "integer", "main", "while"
+    ));
 
-	// This function was added to make the demo file work
-	public boolean isEoFile() {
-		return isEof;
-	}
+    private static final Set<String> TWO_CHAR_OPERATORS = new HashSet<>(Arrays.asList(
+            "||", "&&", "!=", "==", ">=", "<=", ":="
+    ));
 
-	// Constructor
-	// Pass a filename for the program text as a source for the TokenStream.
-	public TokenStream(String fileName) {
-		try {
-			input = new BufferedReader(new FileReader(fileName));
-		} catch (FileNotFoundException e) {
-			System.out.println("File not found: " + fileName);
-			// System.exit(1); // Removed to allow ScannerDemo to continue
-			// running after the input file is not found.
-			isEof = true;
-		}
-	}
+    private static final Set<String> SINGLE_CHAR_OPERATORS = new HashSet<>(Arrays.asList(
+            "!", "<", ">", "/", "*", "-", "+"
+    ));
 
-	public Token nextToken() { // Main function of the scanner
-								// Return next token with its type and value.
-		Token t = new Token();
-		t.setType("Other"); // For now it is Other. You will update it in the code
-		t.setValue("");
+    private static final Set<String> SEPARATORS = new HashSet<>(Arrays.asList(
+            "(", ")", "{", "}", ";", ","
+    ));
 
-		// First check for whitespaces and bypass them
-		skipWhiteSpace();
+    private static final Set<String> OTHER_CHARS = new HashSet<>(Arrays.asList(
+            "=", "@", "&", "|", ":", "\\", "[", "]"
+    ));
 
-		// Then check for a comment, and bypass it
-		// but remember that / may also be a division operator.
-		while (nextChar == '/') {
-			// The use of while (instead of if) prevents the 2nd line to be printed when
-			// there are two comment lines in a row.
-			nextChar = readChar();
-			if (nextChar == '/') { // If / is followed by another /
-				// skip rest of line - it's a comment.
-				// TODO TO BE COMPLETED
-			} else {
-				// A slash followed by anything else must be an operator.
-				t.setValue("/");
-				t.setType("Operator");
-				return t;
-			}
-		}
+    public TokenStream(String filePath) {
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                tokenizeLine(line);
+            }
+        } catch (IOException e) {
+            Token t = new Token();
+            t.setValue("");
+            t.setType("Other");
+            tokens.add(t);
+        }
+    }
 
-		// Then check for an operator; this part of the code should recover 2-character
-		// operators as well as 1-character ones.
-		if (isOperator(nextChar)) {
-			t.setType("Operator");
-			t.setValue(t.getValue() + nextChar);
-			switch (nextChar) {
-			// TODO TO BE COMPLETED OR CHANGED WHERE NEEDED TO IMPLEMENT KAY
-			case '<':
-				// <=
-			case '>':
-				// >=
-			case '=':
-				// ==
-			case '!':
-				// !=
-				nextChar = readChar();
-				return t;
-			case '|':
-				// Look for ||
-				nextChar = readChar();
-				if (nextChar == '|') {
-					t.setValue(t.getValue() + nextChar);
-					nextChar = readChar();
-					return t;
-				} else {
-					t.setType("Other");
-				}
-				return t;
-			case '&':
-				// Look for &&
-				nextChar = readChar();
-				if (nextChar == '&') {
-					t.setValue(t.getValue() + nextChar);
-					nextChar = readChar();
-					return t;
-				} else {
-					t.setType("Other");
-				}
+    private void tokenizeLine(String line) {
+        int len = line.length();
+        int i = 0;
 
-				return t;
-			default: // all other operators
-				nextChar = readChar();
-				return t;
-			}
-		}
+        while (i < len) {
+            char c = line.charAt(i);
 
-		// Then check for a separator
-		if (isSeparator(nextChar)) {
-			t.setType("Separator");
-			// TODO TO BE COMPLETED
-			return t;
-		}
+            if (Character.isWhitespace(c)) {
+                i++;
+                continue;
+            }
 
-		// Then check for an identifier, keyword, or literal (True or False).
-		if (isLetter(nextChar)) {
-			// Set to an identifier
-			t.setType("Identifier");
-			while ((isLetter(nextChar) || isDigit(nextChar))) {
-				t.setValue(t.getValue() + nextChar);
-				nextChar = readChar();
-			}
-			// Now see if this is a keyword
-			if (isKeyword(t.getValue())) {
-				t.setType("Keyword");
-			} else if (t.getValue().equals("True") || t.getValue().equals("False")) {
-				t.setType("Literal");
-			}
-			if (isEndOfToken(nextChar)) { // If token is valid, returns.
-				return t;
-			}
-		}
 
-		if (isDigit(nextChar)) { // check for integer literals
-			t.setType("Literal");
-			while (isDigit(nextChar)) {
-				t.setValue(t.getValue() + nextChar);
-				nextChar = readChar();
-			}
-			// An Integer-Literal is to be only followed by a space,
-			// an operator, or a separator.
-			if (isEndOfToken(nextChar)) {// If token is valid, returns.
-				return t;
-			} 
-		}
+            if (c == '/' && i + 1 < len && line.charAt(i + 1) == '/') {
+                break;
+            }
 
-		t.setType("Other");
-		
-		if (isEof) {
-			return t;
-		}
+            if (i + 1 < len) {
+                String two = line.substring(i, i + 2);
+                if (TWO_CHAR_OPERATORS.contains(two)) {
+                    addToken(two, "Operator");
+                    i += 2;
+                    continue;
+                }
+            }
 
-		// Makes sure that the whole unknown token (Type: Other) is printed.
-		while (!isEndOfToken(nextChar)) {
-			t.setValue(t.getValue() + nextChar);
-			nextChar = readChar();
-		}
-		
-		// Finally check for whitespaces and bypass them
-		skipWhiteSpace();
+            String s = String.valueOf(c);
 
-		return t;
-	}
+            if (SINGLE_CHAR_OPERATORS.contains(s)) {
+                addToken(s, "Operator");
+                i++;
+                continue;
+            }
 
-	private char readChar() {
-		int i = 0;
-		if (isEof)
-			return (char) 0;
-		System.out.flush();
-		try {
-			i = input.read();
-		} catch (IOException e) {
-			System.exit(-1);
-		}
-		if (i == -1) {
-			isEof = true;
-			return (char) 0;
-		}
-		return (char) i;
-	}
+            if (SEPARATORS.contains(s)) {
+                addToken(s, "Separator");
+                i++;
+                continue;
+            }
 
-	private boolean isKeyword(String s) {
-		// TODO TO BE COMPLETED 
-		return false;
-	}
+            if (OTHER_CHARS.contains(s)) {
+                addToken(s, "Other");
+                i++;
+                continue;
+            }
 
-	private boolean isSeparator(char c) {
-		// TODO TO BE COMPLETED
-		return false;
-	}
+            if (Character.isLetterOrDigit(c) || c == '.') {
+                int j = i;
+                while (j < len) {
+                    char cj = line.charAt(j);
+                    if (Character.isLetterOrDigit(cj) || cj == '.') {
+                        j++;
+                    } else {
+                        break;
+                    }
+                }
+                String word = line.substring(i, j);
+                addToken(word, classifyWord(word));
+                i = j;
+                continue;
+            }
 
-	private boolean isOperator(char c) {
-		// Checks for characters that start operators
-		// TODO TO BE COMPLETED
-		return false;
-	}
+            addToken(s, "Other");
+            i++;
+        }
+    }
 
-	private boolean isLetter(char c) {
-		return (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z');
-	}
+    private void addToken(String value, String type) {
+        Token t = new Token();
+        t.setValue(value);
+        t.setType(type);
+        tokens.add(t);
+    }
 
-	private boolean isDigit(char c) {
-		// TODO TO BE COMPLETED
-		return false;
-	}
-	
-	private boolean isWhiteSpace(char c) {
-		return (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f');
-	}
+    private String classifyWord(String word) {
+        if (KEYWORDS.contains(word)) {
+            return "Keyword";
+        }
 
-	private boolean isEndOfLine(char c) {
-		return (c == '\r' || c == '\n' || c == '\f');
-	}
+        if ("True".equals(word) || "False".equals(word)) {
+            return "Literal";
+        }
 
-	private boolean isEndOfToken(char c) { // Is the value a seperate token?
-		return (isWhiteSpace(nextChar) || isOperator(nextChar) || isSeparator(nextChar) || isEof);
-	}
+        if (word.matches("\\d+")) {
+            return "Literal";
+        }
 
-	private void skipWhiteSpace() {
-		// check for whitespaces, and bypass them
-		while (!isEof && isWhiteSpace(nextChar)) {
-			nextChar = readChar();
-		}
-	}
+        if (Character.isLetter(word.charAt(0))) {
+            boolean allAlnum = true;
+            for (int i = 1; i < word.length(); i++) {
+                char c = word.charAt(i);
+                if (!Character.isLetterOrDigit(c)) {
+                    allAlnum = false;
+                    break;
+                }
+            }
+            if (allAlnum) {
+                return "Identifier";
+            }
+        }
 
-	public boolean isEndofFile() {
-		return isEof;
-	}
+        return "Other";
+    }
+
+    public Token nextToken() {
+        if (index >= tokens.size()) {
+            Token t = new Token();
+            t.setValue("");
+            t.setType("Other");
+            return t;
+        }
+        return tokens.get(index++);
+    }
 }
