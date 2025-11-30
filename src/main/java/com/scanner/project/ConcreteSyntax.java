@@ -1,290 +1,352 @@
 package com.scanner.project;
-// ConcreteSyntax.java
-
-// Implementation of the Recursive Descent Parser algorithm
-
-//  Each method corresponds to a concrete syntax grammar rule, 
-// which appears as a comment at the beginning of the method.
-
-// This code DOES NOT implement a parser for KAY. You have to complete
-// the code and also make sure it implements a parser for KAY - not something
-// else, not more, not less.
 
 public class ConcreteSyntax {
 
-	// READ THE COMPLETE FILE FIRST
-	
-	// Instance variables
-	public Token token; // current token that is considered from the input stream
-	public TokenStream input; // stream of tokens generated in by the lexical analysis
+    private final TokenStream input;
+    private Token current;
 
-	// Constructor
-	public ConcreteSyntax(TokenStream ts) { // Open the source program
-		input = ts; // as a TokenStream, and
-		token = input.nextToken(); // retrieve its first Token
-	}
+    public ConcreteSyntax(TokenStream ts) {
+        this.input = ts;
+        this.current = input.nextToken();
+    }
 
-	// Method that prints a syntax error message
-	private String SyntaxError(String tok) {
-		String s = "Syntax error - Expecting: " + tok + " But saw: "
-				+ token.getType() + " = " + token.getValue();
-		System.out.println(s);
-		return s;
-		// System.exit(0);
-	}
+    private void next() {
+        current = input.nextToken();
+    }
 
-	// Match a string with the value of a token. If no problem, go to the next
-	// token otherwise generate an error message
-	private void match(String s) {
-		if (token.getValue().equals(s))
-			token = input.nextToken();
-		else
-			throw new RuntimeException(SyntaxError(s));
-	}
+    private void error(String expected) {
+        throw new RuntimeException(
+                "Syntax error - Expecting: " + expected +
+                " But saw: " + current.getType() + " = " + current.getValue());
+    }
 
-	// Implementation of the Recursive Descent Parser
+    public Program program() {
+        Program p = new Program();
 
-	public Program program() {
-		// TODO TO BE COMPLETED 
-		// Program --> main '{' Declarations Statements '}'
-		String[] header = { };
-		Program p = new Program();
-		for (int i = 0; i < header.length; i++)
-			// bypass " main { "
-			match(header[i]);
-			// add the required code
-		return p;
-	}
+        if (!"Keyword".equals(current.getType()) ||
+            !"main".equals(current.getValue())) {
+            error("main");
+        }
+        next();
 
-	private Declarations declarations() {
-		// TODO TO BE COMPLETED 
-		// Declarations --> { Declaration }*
-		Declarations ds = new Declarations();
-		while (token.getValue().equals("integer")
-				|| token.getValue().equals("bool")) {
-			declaration(ds);
-		}
-		return ds;
-	}
+        if (!"Separator".equals(current.getType()) ||
+            !"{".equals(current.getValue())) {
+            error("{");
+        }
+        next();
 
-	private void declaration(Declarations ds) {
-		// Declaration --> Type Identifiers ;
-		Type t = type();
-		identifiers(ds, t);
-		match(";");
-	}
+        p.decpart = declarations();
 
-	private Type type() {
-		// TODO CHECK THE CODE BELOW AND CHANGE IT IF NECESSARY
-		// Type --> integer | bool
-		Type t = null;
-		if (token.getValue().equals("integer"))
-			t = new Type(token.getValue());
-		else if (token.getValue().equals("bool"))
-			t = new Type(token.getValue());
-		else
-			throw new RuntimeException(SyntaxError("int | boolean"));
-		token = input.nextToken(); // pass over the type
-		return t;
-	}
+        Block body = new Block();
+        statements(body);
+        if (!"Separator".equals(current.getType()) ||
+            !"}".equals(current.getValue())) {
+            error("}");
+        }
+        next();
+        p.body = body;
+        return p;
+    }
 
-	private void identifiers(Declarations ds, Type t) {
-		// Identifiers --> Identifier { , Identifier }*
-		Declaration d = new Declaration(); // first declaration
-		d.t = t; // its type
-		if (token.getType().equals("Identifier")) {
-			d.v = new Variable();
-			d.v.id = token.getValue(); // its value
-			ds.addElement(d);
-			token = input.nextToken();
-			while (token.getValue().equals(",")) {
-				d = new Declaration(); // next declaration
-				d.t = t; // its type
-				token = input.nextToken();
-				if (token.getType().equals("Identifier")) {
-					d.v = new Variable(); // its value
-					d.v.id = token.getValue();
-					ds.addElement(d);
-					token = input.nextToken(); // get "," or ";"
-				} else
-					throw new RuntimeException(SyntaxError("Identifier"));
-			}
-		} else
-			throw new RuntimeException(SyntaxError("Identifier"));
-	}
+    private Declarations declarations() {
+        Declarations decs = new Declarations();
+        while ("Keyword".equals(current.getType()) &&
+              ("integer".equals(current.getValue()) ||
+               "bool".equals(current.getValue()))) {
 
-	private Statement statement() {
-		// Statement --> ; | Block | Assignment | IfStatement | WhileStatement
-		Statement s = new Skip();
-		if (token.getValue().equals(";")) { // Skip
-			token = input.nextToken();
-			return s;
-		} else if (token.getValue().equals("{")) { // Block
-			token = input.nextToken();
-			s = statements();
-			match("}");
-		} else if (token.getValue().equals("if")) // IfStatement
-			s = ifStatement();
-		else if (token.getValue().equals("while")) { // WhileStatement
-			// TODO TO BE COMPLETED
-		} else if (token.getType().equals("Identifier")) { // Assignment
-			// TODO TO BE COMPLETED
-		} else
-			throw new RuntimeException(SyntaxError("Statement"));
-		return s;
-	}
+            String typeName = current.getValue();
+            Type t = new Type(typeName);
+            next();
 
-	private Block statements() {
-		// Block --> '{' Statements '}'
-		Block b = new Block();
-		while (!token.getValue().equals("}")) {
-			b.blockmembers.addElement(statement());
-		}
-		return b;
-	}
+            if (!"Identifier".equals(current.getType())) {
+                error("Identifier");
+            }
+            while (true) {
+                Declaration d = new Declaration();
+                Variable v = new Variable();
+                v.id = current.getValue();
+                d.v = v;
+                d.t = t;
+                decs.add(d);
+                next();
+                if ("Separator".equals(current.getType()) &&
+                    ",".equals(current.getValue())) {
+                    next();
+                    if (!"Identifier".equals(current.getType())) {
+                        error("Identifier");
+                    }
+                } else {
+                    break;
+                }
+            }
 
-	private Assignment assignment() {
-		// Assignment --> Identifier := Expression ;
-		Assignment a = new Assignment();
-		if (token.getType().equals("Identifier")) {
-			// TODO TO BE COMPLETED
-		} else
-			throw new RuntimeException(SyntaxError("Identifier"));
-		return a;
-	}
+            if (!"Separator".equals(current.getType()) ||
+                !";".equals(current.getValue())) {
+                error(";");
+            }
+            next();
+        }
+        return decs;
+    }
 
-	private Expression expression() {
-		// Expression --> Conjunction { || Conjunction }*
-		Binary b;
-		Expression e;
-		e = conjunction();
-		while (token.getValue().equals("||")) {
-			b = new Binary();
-			b.term1 = e;
-			b.op = new Operator(token.getValue());
-			token = input.nextToken();
-			b.term2 = conjunction();
-			e = b;
-		}
-		return e;
-	}
+    private void statements(Block b) {
+        while (!("Separator".equals(current.getType()) &&
+                 "}".equals(current.getValue()))) {
+            Statement s = statement();
+            if (s != null) {
+                b.blockmembers.add(s);
+            }
+        }
+    }
 
-	private Expression conjunction() {
-		// Conjunction --> Relation { && Relation }*
-		Binary b;
-		Expression e;
-		e = relation();
-		while (token.getValue().equals("&&")) {
-			b = new Binary();
-			// TODO TO BE COMPLETED
-			e = b;
-		}
-		return e;
-	}
+    private Statement statement() {
+        if ("Keyword".equals(current.getType()) &&
+            "if".equals(current.getValue())) {
+            return ifStatement();
+        } else if ("Keyword".equals(current.getType()) &&
+                   "while".equals(current.getValue())) {
+            return whileStatement();
+        } else if ("Identifier".equals(current.getType())) {
+            return assignment();
+        } else {
+            error("Statement");
+            return null;
+        }
+    }
 
-	private Expression relation() {
-		// Relation --> Addition [ < | <= | > | >= | == | != ] Addition }*
-		Binary b;
-		Expression e;
-		e = addition();
-		// TODO TO BE CHECKED AND COMPLETED. Do we have all the operators? 
-		while (token.getValue().equals("<") || token.getValue().equals("<=")
-				|| token.getValue().equals(">=")
-				|| token.getValue().equals("==")
-				|| token.getValue().equals("!=")) {
-			b = new Binary();
-			// TODO TO BE COMPLETED
-			e = b;
-		}
-		return e;
-	}
+    private Assignment assignment() {
+        Assignment a = new Assignment();
+        Variable v = new Variable();
+        v.id = current.getValue();
+        a.target = v;
+        next();
 
-	private Expression addition() {
-		// Addition --> Term { [ + | - ] Term }*
-		Binary b;
-		Expression e;
-		e = term();
-		while (token.getValue().equals("+") || token.getValue().equals("-")) {
-			// TODO TO BE COMPLETED
-		}
-		return e;
-	}
+        if (!"Operator".equals(current.getType()) ||
+            !":=".equals(current.getValue())) {
+            error(":=");
+        }
+        next();
 
-	private Expression term() {
-		// Term --> Negation { [ '*' | / ] Negation }*
-		Binary b;
-		Expression e;
-		e = negation();
-		while (token.getValue().equals("*") || token.getValue().equals("/")) {
-			b = new Binary();
-			// TODO TO BE COMPLETED
-			e = b;
-		}
-		return e;
-	}
+        a.source = expression();
 
-	private Expression negation() {
-		// Negation --> { ! }opt Factor
-		Unary u;
-		if (token.getValue().equals("!")) {
-			u = new Unary();
-			u.op = new Operator(token.getValue());
-			token = input.nextToken();
-			u.term = factor();
-			return u;
-		} else
-			return factor();
-	}
+        if (!"Separator".equals(current.getType()) ||
+            !";".equals(current.getValue())) {
+            error(";");
+        }
+        next();
 
-	private Expression factor() {
-		// TODO CHECK THE CODE BELOW
-		// Factor --> Identifier | Literal | ( Expression )
-		Expression e = null;
-		if (token.getType().equals("Identifier")) {
-			Variable v = new Variable();
-			v.id = token.getValue();
-			e = v;
-			token = input.nextToken();
-		} else if (token.getType().equals("Literal")) {
-			Value v = null;
-			if (isInteger(token.getValue()))
-				v = new Value((new Integer(token.getValue())).intValue());
-			else if (token.getValue().equals("True"))
-				v = new Value(true);
-			else if (token.getValue().equals("False"))
-				v = new Value(false);
-			else
-				throw new RuntimeException(SyntaxError("Literal"));
-			e = v;
-			token = input.nextToken();
-		} else if (token.getValue().equals("(")) {
-			token = input.nextToken();
-			e = expression();
-			match(")");
-		} else
-			throw new RuntimeException(SyntaxError("Identifier | Literal | ("));
-		return e;
-	}
+        return a;
+    }
 
-	private Conditional ifStatement() {
-		// IfStatement --> if ( Expression ) Statement { else Statement }opt
-		Conditional c = new Conditional();
-		// TODO TO BE COMPLETED
-		return c;
-	}
+    private Conditional ifStatement() {
+        Conditional c = new Conditional();
+        next();
+        if (!"Separator".equals(current.getType()) ||
+            !"(".equals(current.getValue())) {
+            error("(");
+        }
+        next();
 
-	private Loop whileStatement() {
-		// WhileStatement --> while ( Expression ) Statement
-		Loop l = new Loop();
-		// TODO TO BE COMPLETED
-		return l;
-	}
+        c.test = expression();
 
-	private boolean isInteger(String s) {
-		boolean result = true;
-		for (int i = 0; i < s.length(); i++)
-			if ('0' > s.charAt(i) || '9' < s.charAt(i))
-				result = false;
-		return result;
-	}
+        if (!"Separator".equals(current.getType()) ||
+            !")".equals(current.getValue())) {
+            error(")");
+        }
+        next();
+
+        c.thenbranch = blockWithoutDecls();
+
+        if ("Keyword".equals(current.getType()) &&
+            "else".equals(current.getValue())) {
+            next();
+            c.elsebranch = blockWithoutDecls();
+        } else {
+            c.elsebranch = null;
+        }
+        return c;
+    }
+
+    private Loop whileStatement() {
+        Loop l = new Loop();
+        next();
+
+        if (!"Separator".equals(current.getType()) ||
+            !"(".equals(current.getValue())) {
+            error("(");
+        }
+        next();
+
+        l.test = expression();
+
+        if (!"Separator".equals(current.getType()) ||
+            !")".equals(current.getValue())) {
+            error(")");
+        }
+        next();
+
+        l.body = blockWithoutDecls();
+        return l;
+    }
+
+    private Block blockWithoutDecls() {
+        if (!"Separator".equals(current.getType()) ||
+            !"{".equals(current.getValue())) {
+            error("{");
+        }
+        next();
+        Block b = new Block();
+        statements(b);
+        if (!"Separator".equals(current.getType()) ||
+            !"}".equals(current.getValue())) {
+            error("}");
+        }
+        next();
+        return b;
+    }
+
+    private Expression expression() {
+        return orExpr();
+    }
+
+    private Expression orExpr() {
+        Expression left = andExpr();
+        while ("Operator".equals(current.getType()) &&
+               "||".equals(current.getValue())) {
+            Operator op = new Operator("||");
+            next();
+            Expression right = andExpr();
+            Binary b = new Binary();
+            b.op = op;
+            b.term1 = left;
+            b.term2 = right;
+            left = b;
+        }
+        return left;
+    }
+
+    private Expression andExpr() {
+        Expression left = relExpr();
+        while ("Operator".equals(current.getType()) &&
+               "&&".equals(current.getValue())) {
+            Operator op = new Operator("&&");
+            next();
+            Expression right = relExpr();
+            Binary b = new Binary();
+            b.op = op;
+            b.term1 = left;
+            b.term2 = right;
+            left = b;
+        }
+        return left;
+    }
+
+    private Expression relExpr() {
+        Expression left = addExpr();
+        if ("Operator".equals(current.getType()) &&
+            ( "<".equals(current.getValue())  ||
+              "<=".equals(current.getValue()) ||
+              ">".equals(current.getValue())  ||
+              ">=".equals(current.getValue()) ||
+              "==".equals(current.getValue()) ||
+              "!=".equals(current.getValue()) )) {
+
+            String opLex = current.getValue();
+            if ("!=".equals(opLex)) {
+                opLex = "<>";
+            }
+            Operator op = new Operator(opLex);
+            next();
+            Expression right = addExpr();
+            Binary b = new Binary();
+            b.op = op;
+            b.term1 = left;
+            b.term2 = right;
+            left = b;
+        }
+        return left;
+    }
+
+    private Expression addExpr() {
+        Expression left = mulExpr();
+        while ("Operator".equals(current.getType()) &&
+               ("+".equals(current.getValue()) ||
+                "-".equals(current.getValue()))) {
+            Operator op = new Operator(current.getValue());
+            next();
+            Expression right = mulExpr();
+            Binary b = new Binary();
+            b.op = op;
+            b.term1 = left;
+            b.term2 = right;
+            left = b;
+        }
+        return left;
+    }
+
+    private Expression mulExpr() {
+        Expression left = unary();
+        while ("Operator".equals(current.getType()) &&
+               ("*".equals(current.getValue()) ||
+                "/".equals(current.getValue()))) {
+            Operator op = new Operator(current.getValue());
+            next();
+            Expression right = unary();
+            Binary b = new Binary();
+            b.op = op;
+            b.term1 = left;
+            b.term2 = right;
+            left = b;
+        }
+        return left;
+    }
+
+    private Expression unary() {
+        if ("Operator".equals(current.getType()) &&
+            ("!".equals(current.getValue()) ||
+             "-".equals(current.getValue()))) {
+            Operator op = new Operator(current.getValue());
+            next();
+            Expression term = unary();
+            Unary u = new Unary();
+            u.op = op;
+            u.term = term;
+            return u;
+        }
+        return primary();
+    }
+
+    private Expression primary() {
+        if ("Identifier".equals(current.getType())) {
+            Variable v = new Variable();
+            v.id = current.getValue();
+            next();
+            return v;
+        } else if ("Literal".equals(current.getType())) {
+            String val = current.getValue();
+            Value v;
+            if ("True".equals(val) || "true".equals(val)) {
+                v = new Value(true);
+            } else if ("False".equals(val) || "false".equals(val)) {
+                v = new Value(false);
+            } else {
+                v = new Value(Integer.parseInt(val));
+            }
+            next();
+            return v;
+        } else if ("Separator".equals(current.getType()) &&
+                   "(".equals(current.getValue())) {
+            next();
+            Expression e = expression();
+            if (!"Separator".equals(current.getType()) ||
+                !")".equals(current.getValue())) {
+                error(")");
+            }
+            next();
+            return e;
+        } else {
+            error("Expression");
+            return new Value();
+        }
+    }
 }
